@@ -8,7 +8,7 @@
         // client-side hash path `/#/admin`, which the React application can handle.
         // It's designed to be robust for various hosting environments, including subdirectories.
         const path = window.location.pathname.replace(/(\/)?admin\/?$/, '');
-        const newUrl = window.location.origin + path + '/#/admin';
+        const newUrl = window.location.origin + path + '/admin';
         window.location.replace(newUrl);
     </script>
 </head>
