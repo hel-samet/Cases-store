@@ -165,7 +165,7 @@ export const storeData: StoreData = {
       subImageUrls: [],
     },
     {
-      id: 'prod-ts-001',
+      id: 'prod-ts-0002',
       name: '"Explore More" Graphic Tee',
       description: 'A super-soft cotton graphic tee with a vintage-inspired "Explore More" print. Unisex fit.',
       price: 30,
