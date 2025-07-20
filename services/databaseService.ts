@@ -6,6 +6,9 @@ import { storeData as initialData } from '../data/storeData';
 const LOCAL_STORAGE_KEY_PRODUCTS = 'aura-products';
 const LOCAL_STORAGE_KEY_CATEGORIES = 'aura-categories';
 const LOCAL_STORAGE_KEY_USERS = 'aura-users';
+const LOCAL_STORAGE_KEY_PUBLISHED = 'aura-published-data';
+const SESSION_STORAGE_SYNC_KEY = 'aura-sync-timestamp';
+
 
 // ===== Helper Functions =====
 function loadFromLocalStorage<T>(key: string, defaultData: T[]): T[] {
@@ -66,9 +69,9 @@ function initializeUsers(): User[] {
 
 
 // --- Database Simulation ---
-let productsDB: Product[] = loadFromLocalStorage(LOCAL_STORAGE_KEY_PRODUCTS, [...initialData.products]);
-let categoriesDB: Category[] = loadFromLocalStorage(LOCAL_STORAGE_KEY_CATEGORIES, [...initialData.categories]);
-let usersDB: User[] = initializeUsers();
+let productsDB: Product[];
+let categoriesDB: Category[];
+let usersDB: User[];
 
 const storeInfo = {
     storeName: initialData.storeName,
@@ -85,10 +88,45 @@ function simulateDelay(): Promise<void> {
 // --- Core Data ---
 export const getStoreData = async (): Promise<StoreData> => {
     await simulateDelay();
+    
+    // --- Visitor Data Sync Logic ---
+    // This block ensures that any visitor (who isn't a logged-in admin)
+    // gets the latest "published" version of the store data.
+    let sourceOfTruth = {
+        products: initialData.products,
+        categories: initialData.categories,
+        publishedAt: 'initial', // A default timestamp for the original data
+    };
+    try {
+        const publishedString = localStorage.getItem(LOCAL_STORAGE_KEY_PUBLISHED);
+        if (publishedString) {
+            const publishedData = JSON.parse(publishedString);
+            if (publishedData.products && publishedData.categories && publishedData.publishedAt) {
+                sourceOfTruth = publishedData;
+            }
+        }
+    } catch (e) {
+        console.error("DB: Could not parse published data.", e);
+    }
+
+    const lastSyncTimestamp = sessionStorage.getItem(SESSION_STORAGE_SYNC_KEY);
+    const requiresSync = lastSyncTimestamp !== sourceOfTruth.publishedAt;
+    const isAdminLoggedIn = !!sessionStorage.getItem('auraAdminUserId');
+
+    // Sync if the data is stale AND the user is not an admin.
+    // This protects an admin's draft work from being overwritten.
+    if (requiresSync && !isAdminLoggedIn) {
+        console.log("DB: Stale data detected for visitor. Syncing with source of truth.");
+        saveToLocalStorage(LOCAL_STORAGE_KEY_PRODUCTS, sourceOfTruth.products);
+        saveToLocalStorage(LOCAL_STORAGE_KEY_CATEGORIES, sourceOfTruth.categories);
+        sessionStorage.setItem(SESSION_STORAGE_SYNC_KEY, sourceOfTruth.publishedAt);
+    }
+    // --- End Sync Logic ---
+
     // Always reload from storage to ensure consistency between tabs
-    productsDB = loadFromLocalStorage(LOCAL_STORAGE_KEY_PRODUCTS, productsDB);
-    categoriesDB = loadFromLocalStorage(LOCAL_STORAGE_KEY_CATEGORIES, categoriesDB);
-    usersDB = initializeUsers(); // Use initializer to always get migrated users
+    productsDB = loadFromLocalStorage(LOCAL_STORAGE_KEY_PRODUCTS, sourceOfTruth.products);
+    categoriesDB = loadFromLocalStorage(LOCAL_STORAGE_KEY_CATEGORIES, sourceOfTruth.categories);
+    usersDB = initializeUsers();
     console.log("DB: Fetched all store data");
     return JSON.parse(JSON.stringify({
         ...storeInfo,
@@ -277,4 +315,26 @@ export const importStoreData = async (data: { products: Product[], categories: C
     saveToLocalStorage(LOCAL_STORAGE_KEY_CATEGORIES, data.categories);
     
     console.log("DB: Imported data successfully. Products:", data.products.length, "Categories:", data.categories.length);
+};
+
+export const publishStoreData = async (): Promise<void> => {
+    await simulateDelay();
+    const timestamp = new Date().toISOString();
+    
+    // The in-memory DB variables for the admin hold the latest changes.
+    const dataToPublish = {
+        products: productsDB,
+        categories: categoriesDB,
+        publishedAt: timestamp,
+    };
+    
+    try {
+        localStorage.setItem(LOCAL_STORAGE_KEY_PUBLISHED, JSON.stringify(dataToPublish));
+        // Also update the current session's sync timestamp to prevent an immediate re-sync for the admin.
+        sessionStorage.setItem(SESSION_STORAGE_SYNC_KEY, timestamp);
+        console.log("DB: Published current store data.", dataToPublish);
+    } catch(e) {
+        console.error("Failed to publish data", e);
+        throw new Error("Could not publish data. The browser storage might be full.");
+    }
 };
