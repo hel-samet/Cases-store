@@ -164,6 +164,18 @@ export const storeData: StoreData = {
       imageUrl: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?q=80&w=600&h=600&auto=format&fit=crop',
       subImageUrls: [],
     },
+    {
+      id: 'prod-ts-001',
+      name: '"Explore More" Graphic Tee',
+      description: 'A super-soft cotton graphic tee with a vintage-inspired "Explore More" print. Unisex fit.',
+      price: 30,
+      category: 'T-Shirts',
+      subcategory: 'Graphic Tees',
+      rating: 4.7,
+      reviews: 189,
+      imageUrl: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?q=80&w=600&h=600&auto=format&fit=crop',
+      subImageUrls: [],
+    },
   ],
   users: [],
 };
