@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Redirecting to Admin Dashboard...</title>
+    <script>
+        // This script redirects the user from a server path like `/admin` to the 
+        // client-side hash path `/#/admin`, which the React application can handle.
+        // It's designed to be robust for various hosting environments, including subdirectories.
+        const path = window.location.pathname.replace(/(\/)?admin\/?$/, '');
+        const newUrl = window.location.origin + path + '/#/admin';
+        window.location.replace(newUrl);
+    </script>
+</head>
+<body>
+    <p>Redirecting you to the admin dashboard. If you are not redirected automatically, <a id="redirect-link" href="/#/admin">please click here</a>.</p>
+    <script>
+        // Also update the fallback link for subdirectory compatibility.
+        const linkPath = window.location.pathname.replace(/(\/)?admin\/?$/, '');
+        document.getElementById('redirect-link').href = linkPath + '/#/admin';
+    </script>
+</body>
+</html>
