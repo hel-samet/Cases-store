@@ -1,3 +1,4 @@
+
 import type { Product, StoreData, Category, User } from '../types';
 import { storeData as initialData } from '../data/storeData';
 
@@ -262,4 +263,18 @@ export const deleteCategory = async (categoryId: string): Promise<{ id: string }
     saveToLocalStorage(LOCAL_STORAGE_KEY_CATEGORIES, categoriesDB);
     console.log("DB: Deleted category", categoryId);
     return { id: categoryId };
+};
+
+// --- Data Management ---
+export const importStoreData = async (data: { products: Product[], categories: Category[] }): Promise<void> => {
+    await simulateDelay();
+    if (!data || !Array.isArray(data.products) || !Array.isArray(data.categories)) {
+        throw new Error("Invalid data structure. Must include 'products' and 'categories' arrays.");
+    }
+    
+    // In a real app, you would do much more thorough validation here
+    saveToLocalStorage(LOCAL_STORAGE_KEY_PRODUCTS, data.products);
+    saveToLocalStorage(LOCAL_STORAGE_KEY_CATEGORIES, data.categories);
+    
+    console.log("DB: Imported data successfully. Products:", data.products.length, "Categories:", data.categories.length);
 };

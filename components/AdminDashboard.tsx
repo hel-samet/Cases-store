@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import type { Product, Category, User } from '../types';
 import ProductFormModal from './ProductFormModal';
 import AdminSidebar from './AdminSidebar';
@@ -8,6 +8,7 @@ import CategoryManager from './CategoryManager';
 import UserManager from './UserManager';
 import ChangePasswordModal from './ChangePasswordModal';
 import UserFormModal from './UserFormModal';
+import { importStoreData } from '../services/databaseService';
 
 interface AdminDashboardProps {
     storeName: string;
@@ -47,6 +48,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Permission check effect
     useEffect(() => {
@@ -55,6 +57,74 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
             onSetAdminView('products');
         }
     }, [adminView, currentUser.role, onSetAdminView]);
+
+    const handleBackupData = () => {
+        // We only backup products and categories, not users for security.
+        const backupData = {
+            products: props.products,
+            categories: props.categories,
+        };
+
+        const jsonString = JSON.stringify(backupData, null, 2);
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        
+        const a = document.createElement('a');
+        a.href = url;
+        const date = new Date().toISOString().slice(0, 10);
+        a.download = `aura-living-backup-${date}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+
+    const handleImportClick = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        if (!window.confirm("Are you sure you want to import this data? This will overwrite all existing products and categories. This action cannot be undone.")) {
+            if(event.target) event.target.value = '';
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const text = e.target?.result;
+                if (typeof text !== 'string') {
+                    throw new Error("File could not be read.");
+                }
+                const data = JSON.parse(text);
+
+                if (!data.products || !data.categories || !Array.isArray(data.products) || !Array.isArray(data.categories)) {
+                    throw new Error("Invalid backup file structure. It must contain 'products' and 'categories' arrays.");
+                }
+                
+                await importStoreData(data);
+                
+                alert("Data imported successfully! The application will now reload.");
+                window.location.reload();
+
+            } catch (error) {
+                const message = error instanceof Error ? error.message : "An unknown error occurred.";
+                console.error("Failed to import data:", error);
+                alert(`Error importing data: ${message}`);
+            } finally {
+                if(event.target) event.target.value = '';
+            }
+        };
+        reader.onerror = () => {
+            alert("Failed to read file.");
+            if(event.target) event.target.value = '';
+        };
+        reader.readAsText(file);
+    };
+
 
     const handleAddNewProductClick = () => {
         setEditingProduct(null);
@@ -223,10 +293,35 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
             />
             
             <div className="flex-1 flex flex-col overflow-hidden">
+                 <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileImport}
+                    accept=".json"
+                    className="hidden"
+                />
                 <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-8">
-                    <div className="mb-8">
-                        <h1 className="text-3xl font-bold text-gray-800">Dashboard</h1>
-                        <p className="text-gray-500 mt-1">Welcome back, {currentUser.email.split('@')[0]}.</p>
+                    <div className="flex justify-between items-start mb-8">
+                        <div>
+                            <h1 className="text-3xl font-bold text-gray-800">Dashboard</h1>
+                            <p className="text-gray-500 mt-1">Welcome back, {currentUser.email.split('@')[0]}.</p>
+                        </div>
+                        <div className="flex space-x-2">
+                             <button
+                                onClick={handleImportClick}
+                                className="px-4 py-2 bg-white text-gray-700 border border-gray-300 font-semibold rounded-md hover:bg-gray-50 transition flex items-center"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                                Import Data
+                            </button>
+                            <button
+                                onClick={handleBackupData}
+                                className="px-4 py-2 bg-white text-gray-700 border border-gray-300 font-semibold rounded-md hover:bg-gray-50 transition flex items-center"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                                Backup Data
+                            </button>
+                        </div>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
